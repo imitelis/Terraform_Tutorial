@@ -34,20 +34,40 @@ resource "aws_security_group" "app_sg" {
   }
 }
 
-# RDS instance
-resource "aws_db_instance" "postgresql" {
-  allocated_storage    = 20
-  storage_type         = "gp2"
-  engine               = "postgres"
-  engine_version       = "14"
-  instance_class       = "db.t3.micro"
-  username             = var.db_username
-  password             = var.db_password
-  db_name              = "mail_db"
-  skip_final_snapshot  = true
-  publicly_accessible  = true
+# Aurora PostgreSQL cluster
+resource "aws_rds_cluster" "aurora_postgresql" {
+  cluster_identifier           = "app-aurora-cluster"
+  engine                       = "aurora-postgresql"
+  engine_version               = "14"
+  master_username              = var.db_username
+  master_password              = var.db_password
+  database_name                = "mail_db"
 
-  vpc_security_group_ids = [aws_security_group.app_sg.id]
+  vpc_security_group_ids       = [aws_security_group.app_sg.id]
+
+  skip_final_snapshot         = true
+  tags = {
+    Name = "Aurora PostgreSQL Cluster"
+  }
+}
+
+# Aurora PostgreSQL instance (primary)
+resource "aws_rds_cluster_instance" "aurora_instance_primary" {
+  count               = 1
+  cluster_identifier  = aws_rds_cluster.aurora_postgresql.id
+  instance_class      = "db.t3.medium"
+  engine              = "aurora-postgresql"
+  publicly_accessible = true
+  
+}
+
+# Aurora PostgreSQL instance (replica)
+resource "aws_rds_cluster_instance" "aurora_instance_replica" {
+  count               = 1 
+  cluster_identifier  = aws_rds_cluster.aurora_postgresql.id
+  instance_class      = "db.t3.medium"
+  engine              = "aurora-postgresql"
+  publicly_accessible = true
 }
 
 # EC2 Instance
